@@ -736,11 +736,12 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
             //damage the actor, if found
             if (closestAct != nullptr) {
                 u8 health = payload["health"];
-                closestAct->colChkInfo.health = health;
-                //closestAct->colChkInfo.damage += damage;
-                //float health = Actor_ApplyDamage(closestAct);
-                if (health == 0) {
-                    actorKillBuffer.push_back(closestAct); //this may cause bugs...
+                if (health > 0) {
+                    closestAct->colChkInfo.health = health;
+                } else {
+                    //shouldn't ever get an actor down to 0 health, as this can cause issues with certain enemies
+                    //instead, on a killing blow, a client will broadcast a "KILL_ENEMY" packet.
+                    closestAct->colChkInfo.health = 1;
                 }
             }
         }
@@ -776,11 +777,12 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
             //damage the actor, if found
             if (closestAct != nullptr) {
                 u8 health = payload["health"];
-                closestAct->colChkInfo.health = health;
-                //closestAct->colChkInfo.damage += damage;
-                //float health = Actor_ApplyDamage(closestAct);
-                if (health == 0) {
-                    actorKillBuffer.push_back(closestAct); //this may cause bugs...
+                if (health > 0) {
+                    closestAct->colChkInfo.health = health;
+                } else {
+                    //shouldn't ever get an actor down to 0 health, as this can cause issues with certain enemies
+                    //instead, on a killing blow, a client will broadcast a "KILL_BOSS" packet.
+                    closestAct->colChkInfo.health = 1;
                 }
             }
         }
