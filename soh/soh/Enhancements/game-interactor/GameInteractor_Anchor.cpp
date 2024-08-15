@@ -725,7 +725,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 //only consider actors with the same id
                 if (currAct->id == payload["actorID"]){
                 
-                    float distance = pow(currAct->prevPos.x - payload["actorX"],2) + pow(currAct->prevPos.y - payload["actorY"],2) + pow(currAct->prevPos.z - payload["actorZ"],2);
+                    float distance = pow(currAct->prevPos.x - (float)payload["actorX"],2) + pow(currAct->prevPos.y - (float)payload["actorY"],2) + pow(currAct->prevPos.z - (float)payload["actorZ"],2);
                     if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
                         closestAct = currAct;
                         closestDist = distance;
@@ -765,7 +765,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 //only consider actors with the same id
                 if (currAct->id == payload["actorID"]){
                 
-                    float distance = pow(currAct->prevPos.x - payload["actorX"],2) + pow(currAct->prevPos.y - payload["actorY"],2) + pow(currAct->prevPos.z - payload["actorZ"],2);
+                    float distance = pow(currAct->prevPos.x - (float)payload["actorX"],2) + pow(currAct->prevPos.y - (float)payload["actorY"],2) + pow(currAct->prevPos.z - (float)payload["actorZ"],2);
                     if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
                         closestAct = currAct;
                         closestDist = distance;
@@ -805,7 +805,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 //only consider actors with the same id
                 if (currAct->id == payload["actorID"]){
                 
-                    float distance = pow(currAct->prevPos.x - payload["actorX"],2) + pow(currAct->prevPos.y - payload["actorY"],2) + pow(currAct->prevPos.z - payload["actorZ"],2);
+                    float distance = pow(currAct->prevPos.x - (float)payload["actorX"],2) + pow(currAct->prevPos.y - (float)payload["actorY"],2) + pow(currAct->prevPos.z - (float)payload["actorZ"],2);
                     if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
                         closestAct = currAct;
                         closestDist = distance;
@@ -839,7 +839,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 //only consider actors with the same id
                 if (currAct->id == payload["actorID"]){
                 
-                    float distance = pow(currAct->prevPos.x - payload["actorX"],2) + pow(currAct->prevPos.y - payload["actorY"],2) + pow(currAct->prevPos.z - payload["actorZ"],2);
+                    float distance = pow(currAct->prevPos.x - (float)payload["actorX"],2) + pow(currAct->prevPos.y - (float)payload["actorY"],2) + pow(currAct->prevPos.z - (float)payload["actorZ"],2);
                     if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
                         closestAct = currAct;
                         closestDist = distance;
