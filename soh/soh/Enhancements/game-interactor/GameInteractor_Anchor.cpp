@@ -302,6 +302,8 @@ uint32_t lastAttackerClientId = 0;
 uint8_t pvpVulnerableTimer = 0;
 uint16_t speedBuffTimer = 0;
 uint16_t invincibilityTimer = 0;
+uint16_t bossDeathTimer = 0;
+uint32_t bossKiller = 0;
 uint8_t  gSceneNum = -99;
 uint8_t  gRoomNum = -99;
 // the kill buffer is used along with the update player hook to sequentially kill enemies
@@ -739,7 +741,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 if (health > 0) {
                     closestAct->colChkInfo.health = health;
                 } else {
-                    //shouldn't ever get an actor down to 0 health, as this can cause issues with certain enemies
+                    //shouldn't ever get an enemy actor down to 0 health, as this can cause issues with certain enemies
                     //instead, on a killing blow, a client will broadcast a "KILL_ENEMY" packet.
                     closestAct->colChkInfo.health = 1;
                 }
@@ -780,9 +782,10 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 if (health > 0) {
                     closestAct->colChkInfo.health = health;
                 } else {
-                    //shouldn't ever get an actor down to 0 health, as this can cause issues with certain enemies
-                    //instead, on a killing blow, a client will broadcast a "KILL_BOSS" packet.
-                    closestAct->colChkInfo.health = 1;
+                    //Kill a boss when their health goes to 0
+                    actorKillBuffer.push_back(closestAct);
+                    bossDeathTimer = 10*20; //10 seconds
+                    bossKiller = clientId; //remember the player who delivered the killing blow!
                 }
             }
         }
@@ -822,6 +825,8 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         }
     }
 
+    // As far as I can tell, this may never get used... because of the way boss actors are handled
+    // They don't seem to trigger the OnEnemyDefeat hook (at least not their parent actor)
     if (payload["type"] == "KILL_BOSS" && from_teammate){
         //check if client is from the same room and scene
         uint32_t clientId = payload["clientId"].get<uint32_t>();
@@ -1073,12 +1078,15 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         });
     }
     if (payload["type"] == "REQUEST_TELEPORT") {
-        Anchor_TeleportToPlayer(payload["clientId"].get<uint32_t>());
+        Anchor_TeleportToPlayer(payload["clientId"].get<uint32_t>(), false);
+    }
+    if (payload["type"] == "REQUEST_TELEPORT_BOSS") {
+        Anchor_TeleportToPlayer(payload["clientId"].get<uint32_t>(), true);
     }
     if (payload["type"] == "TELEPORT_TO") {
         // Check if we have enough rupees.
         int32_t teleportCost = CVarGetInteger("gTeleportRupeeCost", 0);
-        if (gSaveContext.rupees < teleportCost) {
+        if (gSaveContext.rupees < teleportCost && !payload["free"]) {
             // Can't teleport.
             std::stringstream msg;
             msg << "Need " << teleportCost << " rupees to teleport.";
@@ -1092,6 +1100,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         PosRot posRot = payload["posRot"].get<PosRot>();
 
         Play_SetRespawnData(gPlayState, RESPAWN_MODE_DOWN, entranceIndex, roomIndex, 0xDFF, &posRot.pos, posRot.rot.y);
+        invincibilityTimer = 40; // 2 seconds
         Play_TriggerVoidOut(gPlayState);
     }
     if (payload["type"] == "SEND_TRAP") {
@@ -1660,6 +1669,16 @@ void Anchor_RegisterHooks() {
     });
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
+        if (bossDeathTimer > 0) {
+            bossDeathTimer--;
+            if (bossDeathTimer <= 0 && bossKiller != 0) {
+                Anchor_RequestTeleportAfterBoss(bossKiller);
+                bossKiller = 0;
+            }
+        }
+    });
+
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
         if (actorKillBuffer.size() > 0){
             //kills actors on a FIFO basis
             if (actorKillBuffer[0] == nullptr) {
@@ -1670,14 +1689,6 @@ void Anchor_RegisterHooks() {
             actorKillBuffer.erase(actorKillBuffer.begin());
         }
     });
-
-    //GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
-    //    if ( (uint8_t)gPlayState->roomCtx.curRoom.num != gRoomNum || (uint8_t)gPlayState->sceneNum != gSceneNum) {
-    //        //set room and scene number to the new room/scene entered
-    //        gSceneNum = (uint8_t) gPlayState->sceneNum;
-    //        gRoomNum = (uint8_t) gPlayState->roomCtx.curRoom.num;
-    //    }
-    //});
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnEnemyDefeat>([](void* refActor) {
         Anchor_ActorKill((Actor*)refActor);
@@ -1966,7 +1977,18 @@ void Anchor_RequestTeleport(uint32_t clientId) {
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
 }
 
-void Anchor_TeleportToPlayer(uint32_t clientId) {
+void Anchor_RequestTeleportAfterBoss(uint32_t clientId) {
+    if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
+
+    nlohmann::json payload;
+
+    payload["type"] = "REQUEST_TELEPORT_BOSS";
+    payload["targetClientId"] = clientId;
+
+    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+}
+
+void Anchor_TeleportToPlayer(uint32_t clientId, bool free) {
     if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
     Player* player = GET_PLAYER(gPlayState);
 
@@ -1977,6 +1999,7 @@ void Anchor_TeleportToPlayer(uint32_t clientId) {
     payload["entranceIndex"] = gSaveContext.entranceIndex;
     payload["roomIndex"] = gPlayState->roomCtx.curRoom.num;
     payload["posRot"] = player->actor.world;
+    payload["free"] = free;
     
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
 }
