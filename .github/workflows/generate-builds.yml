@@ -95,7 +95,6 @@ jobs:
         cmake --build build-cmake --config Release --parallel 10
         mv soh.otr build-cmake/soh
         (cd build-cmake && cpack)
-
         mv _packages/*.dmg SoH.dmg
         mv README.md readme.txt
     - name: Upload build
