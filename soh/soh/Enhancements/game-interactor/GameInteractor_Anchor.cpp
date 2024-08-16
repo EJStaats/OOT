@@ -1100,7 +1100,9 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         PosRot posRot = payload["posRot"].get<PosRot>();
 
         Play_SetRespawnData(gPlayState, RESPAWN_MODE_DOWN, entranceIndex, roomIndex, 0xDFF, &posRot.pos, posRot.rot.y);
-        invincibilityTimer = 40; // 2 seconds
+        if (invincibilityTimer < 40) {
+            invincibilityTimer = 40; // 2 seconds
+        }
         Play_TriggerVoidOut(gPlayState);
     }
     if (payload["type"] == "SEND_TRAP") {
