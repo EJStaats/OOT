@@ -784,7 +784,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 } else {
                     //Kill a boss when their health goes to 0
                     actorKillBuffer.push_back(closestAct);
-                    bossDeathTimer = 10*20; //10 seconds
+                    bossDeathTimer = 20*20; //10 seconds
                     bossKiller = clientId; //remember the player who delivered the killing blow!
                 }
             }
