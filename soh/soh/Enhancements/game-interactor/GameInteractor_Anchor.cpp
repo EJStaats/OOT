@@ -302,14 +302,13 @@ uint32_t lastAttackerClientId = 0;
 uint8_t pvpVulnerableTimer = 0;
 uint16_t speedBuffTimer = 0;
 uint16_t invincibilityTimer = 0;
-uint16_t bossDeathTimer = 0;
-uint32_t bossKiller = 0;
-uint8_t  gSceneNum = -99;
-uint8_t  gRoomNum = -99;
+uint8_t gSceneNum = -1;
+uint8_t gRoomNum = -1;
 // the kill buffer is used along with the update player hook to sequentially kill enemies
 // Ran into a bug where killing enemies in a list did not work, but adding them to a kill buffer
 // and waiting to kill them until player updates seems to work
 std::vector<Actor*> actorKillBuffer = {}; 
+std::vector<std::pair<int, int>> spawnBuffer = {};  //vector of pairs, <enemyId, params> to be passed to spawnEnemyWithOffset()
 
 void Anchor_DisplayMessage(AnchorMessage message = {}) {
     message.id = notificationId++;
@@ -784,8 +783,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 } else {
                     //Kill a boss when their health goes to 0
                     actorKillBuffer.push_back(closestAct);
-                    bossDeathTimer = 25*20; //10 seconds
-                    bossKiller = clientId; //remember the player who delivered the killing blow!
+                    Anchor_RequestRoomEnemies(clientId);
                 }
             }
         }
@@ -870,53 +868,66 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
     }
 
     if (payload["type"] == "SEND_ROOM_ENEMIES") {
+        uint32_t clientId = payload["clientId"].get<uint32_t>();
+        //double check that the sender is actually in the same room as the receiver
+        //Its possible that this is no longer the case since the state of the room was requested
+        if (GameInteractorAnchor::AnchorClients[clientId].sceneNum == gPlayState->sceneNum
+            && GameInteractorAnchor::AnchorClients[clientId].roomIndex == gPlayState->roomCtx.curRoom.num ) {
 
-        ActorCategory category = payload["category"]==0 ? ACTORCAT_ENEMY : ACTORCAT_BOSS;
-        std::vector<float> enemiesXReceived = payload["enemiesX"];
-        std::vector<float> enemiesYReceived = payload["enemiesY"];
-        std::vector<float> enemiesZReceived = payload["enemiesZ"];
-        std::vector<u8> enemiesHealthReceived = payload["enemiesHealth"];
-        std::vector<int> enemiesIdReceived = payload["enemiesId"];
-        std::vector<int> matched = {};
-        ActorListEntry currList = gPlayState->actorCtx.actorLists[category];
-        int numActors = currList.length;
+            ActorCategory category = payload["category"]==0 ? ACTORCAT_ENEMY : ACTORCAT_BOSS;
+            std::vector<float> enemiesXReceived = payload["enemiesX"];
+            std::vector<float> enemiesYReceived = payload["enemiesY"];
+            std::vector<float> enemiesZReceived = payload["enemiesZ"];
+            std::vector<u8> enemiesHealthReceived = payload["enemiesHealth"];
+            std::vector<int> enemiesIdReceived = payload["enemiesId"];
+            std::vector<int> enemiesParamsReceieved = payload["enemiesParams"];
+            std::vector<int> matched = {};
+            ActorListEntry currList = gPlayState->actorCtx.actorLists[category];
+            int numActors = currList.length;
 
-        // not sure if there are any cases in game where additional enemies should spawn in
-        // assuming that number of actors on room init is >= number of actors already there
-        //some algorithm for matching enemies...below code is gross lolz
-        for (int j=0; j<enemiesIdReceived.size(); ++j){
-            Actor* currAct = currList.head;
-            Actor* closestAct = nullptr;
-            float closestDist = -1;
-            matched.push_back(-1);
-            //loop through enemy actors
-            for (int i=0; i<numActors; ++i) {
-                //only consider actors with the same id adn that are not already matched
-                if ((int)currAct->id == enemiesIdReceived[j] && std::find(matched.begin(),matched.end(),i) == matched.end()){
-                
-                    float distance = pow((float)currAct->prevPos.x - enemiesXReceived[j],2) + pow((float)currAct->prevPos.y - enemiesYReceived[j],2) + pow((float)currAct->prevPos.z - enemiesZReceived[j],2);
-                    if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
-                        closestAct = currAct;
-                        closestDist = distance;
-                        matched[j]=i;
+            // not sure if there are any cases in game where additional enemies should spawn in
+            // assuming that number of actors on room init is >= number of actors already there
+            //some algorithm for matching enemies...below code is gross lolz
+            for (int j=0; j<enemiesIdReceived.size(); ++j){
+                Actor* currAct = currList.head;
+                Actor* closestAct = nullptr;
+                float closestDist = -1;
+                matched.push_back(-1);
+                //loop through enemy actors
+                for (int i=0; i<numActors; ++i) {
+                    //only consider actors with the same id adn that are not already matched
+                    if ((int)currAct->id == enemiesIdReceived[j] && std::find(matched.begin(),matched.end(),i) == matched.end()){
+                    
+                        float distance = pow((float)currAct->prevPos.x - enemiesXReceived[j],2) + pow((float)currAct->prevPos.y - enemiesYReceived[j],2) + pow((float)currAct->prevPos.z - enemiesZReceived[j],2);
+                        if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
+                            closestAct = currAct;
+                            closestDist = distance;
+                            matched[j]=i;
+                        }
                     }
+                    currAct = currAct->next;
+                }//for all enemies
+                if (closestAct!=nullptr) {
+                    u8 health = enemiesHealthReceived[j];
+                    closestAct->colChkInfo.health = health;
+                }
+            }// for each received enemy -- enemies matched at this point
+
+            currList = gPlayState->actorCtx.actorLists[category];
+            Actor* currAct = currList.head;
+
+            for (int i=0;i<numActors;++i){
+                if (matched.size() == 0 || std::find(matched.begin(),matched.end(),i) == matched.end()) {
+                    actorKillBuffer.push_back(currAct);
                 }
                 currAct = currAct->next;
-            }//for all enemies
-            if (closestAct!=nullptr) {
-                u8 health = enemiesHealthReceived[j];
-                closestAct->colChkInfo.health = health;
             }
-        }// for each received enemy -- enemies matched at this point
-
-        currList = gPlayState->actorCtx.actorLists[category];
-        Actor* currAct = currList.head;
-
-        for (int i=0;i<numActors;++i){
-            if (matched.size() == 0 || std::find(matched.begin(),matched.end(),i) == matched.end()) {
-                actorKillBuffer.push_back(currAct);
+            //Attempt to spawn enemies that are received but not matched...doesn't work...
+            for (int j=0; j<matched.size(); ++j){
+                if (matched[j] == -1) {
+                    spawnBuffer.push_back(std::make_pair(enemiesIdReceived[j],enemiesParamsReceieved[j]));
+                }
             }
-            currAct = currAct->next;
         }
 
     }
@@ -1080,9 +1091,6 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
     if (payload["type"] == "REQUEST_TELEPORT") {
         Anchor_TeleportToPlayer(payload["clientId"].get<uint32_t>(), false);
     }
-    if (payload["type"] == "REQUEST_TELEPORT_BOSS") {
-        Anchor_TeleportToPlayer(payload["clientId"].get<uint32_t>(), true);
-    }
     if (payload["type"] == "TELEPORT_TO") {
         // Check if we have enough rupees.
         int32_t teleportCost = CVarGetInteger("gTeleportRupeeCost", 0);
@@ -1098,6 +1106,8 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         uint32_t entranceIndex = payload["entranceIndex"].get<uint32_t>();
         uint32_t roomIndex = payload["roomIndex"].get<uint32_t>();
         PosRot posRot = payload["posRot"].get<PosRot>();
+        posRot.pos.z -= std::cos(3.14159*posRot.rot.y/32768); //just a little nudge behind actual player position
+        posRot.pos.x -= std::sin(3.14159*posRot.rot.y/32768);
 
         Play_SetRespawnData(gPlayState, RESPAWN_MODE_DOWN, entranceIndex, roomIndex, 0xDFF, &posRot.pos, posRot.rot.y);
         if (invincibilityTimer < 40) {
@@ -1671,79 +1681,62 @@ void Anchor_RegisterHooks() {
     });
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
-        if (bossDeathTimer > 0) {
-            bossDeathTimer--;
-            if (bossDeathTimer <= 0 && bossKiller != 0) {
-                Anchor_RequestTeleportAfterBoss(bossKiller);
-                bossKiller = 0;
-            }
-        }
-    });
-
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
         if (actorKillBuffer.size() > 0){
             //kills actors on a FIFO basis
             if (actorKillBuffer[0] == nullptr) {
                 Anchor_DisplayMessage( { .message = "Actor to be killed was a nullptr"});
             }
             Actor_Kill(actorKillBuffer[0]);
-            Actor_Destroy(actorKillBuffer[0], gPlayState); // not sure if Actor_Destory or Actor_Kill is correct here...
+            //Actor_Destroy(actorKillBuffer[0], gPlayState); // not sure if Actor_Destory or Actor_Kill is correct here...
             actorKillBuffer.erase(actorKillBuffer.begin());
+        }
+        if (spawnBuffer.size() > 0){
+            //spawns actors on a FIFO basis
+            GameInteractionEffectQueryResult result = GameInteractor::RawAction::SpawnEnemyWithOffset(spawnBuffer[0].first, spawnBuffer[0].second);
+            if (result == GameInteractionEffectQueryResult::Possible) {
+                spawnBuffer.erase(spawnBuffer.begin());
+            }
+        }
+    });
+
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneFlagSet>([](int16_t sceneNum, int16_t flagType, int16_t flag) {
+        //after killing boss, check for the scene flag being set, the portal should be spawned, and now other clients can re-warp into
+        //this room, spawning the portal for them
+        //check for the warp portal
+        //check for flag type 3 to flag 1
+        for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
+            if ( flagType == 3 && flag == 1 && IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
+            //if a teammate is found in the room, make them teleport to you which "refreshes the room"
+                Anchor_TeleportToPlayer(clientId, true);    
+            }
         }
     });
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnEnemyDefeat>([](void* refActor) {
         Anchor_ActorKill((Actor*)refActor);
-    });
-
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneSpawnActors>([]() {
-        //entering a new room
-        if (gPlayState != nullptr && 
-           ((uint8_t)gPlayState->roomCtx.curRoom.num != gRoomNum || (uint8_t)gPlayState->sceneNum != gSceneNum)) {
-            //set room and scene number to the new room/scene entered
-            gSceneNum = (uint8_t) gPlayState->sceneNum;
-            gRoomNum = (uint8_t) gPlayState->roomCtx.curRoom.num;
-            //look for other teammate clients
-            ActorListEntry currList = gPlayState->actorCtx.actorLists[ACTORCAT_ITEMACTION];
-            int numActors = currList.length;
-            Actor* currAct = currList.head;  
-            for (int i=0; i<numActors; ++i) {
-                if (currAct->id == gEnLinkPuppetId) {
-                    uint32_t clientId = GameInteractorAnchor::ActorIndexToClientId[currAct->params - 3];
-                    AnchorClient client = GameInteractorAnchor::AnchorClients[clientId];
-                    if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
-                        Anchor_RequestRoomEnemies(clientId); //if a teammate is found in the room, request the state of room enemies from that player
-                        break;
-                    }
-                }
-                currAct->next;
+        for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
+            if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
+                //if a teammate is found in the room, send the new state of room enemies to that player
+                //this is used to update enemies in case an killed enemy spawns children
+                Anchor_SendRoomEnemies(clientId, (ActorCategory)((Actor*)refActor)->category);
+                break;
             }
         }
     });
 
-    //similar to above, but on every scene init
-        // > I think not necessary since above method already checks for scene changes onspawnactors, so this is superfluous...
-    //GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneInit>([](int16_t sceneNum) {
-    //    //set room and scene number to the new room/scene entered
-    //    gSceneNum = gPlayState->sceneNum;
-    //    gRoomNum = gPlayState->roomCtx.curRoom.num;
-    //    //look for other teammate clients
-    //    ActorListEntry currList = gPlayState->actorCtx.actorLists[ACTORCAT_ITEMACTION];
-    //    int numActors = currList.length;
-    //    Actor* currAct = currList.head;
-    //    for (int i=0; i<numActors; ++i) {
-    //        if (currAct->id == gEnLinkPuppetId) {
-    //            uint32_t clientId = GameInteractorAnchor::ActorIndexToClientId[currAct->params - 3];
-    //            AnchorClient client = GameInteractorAnchor::AnchorClients[clientId];
-    //            if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
-    //                Anchor_RequestRoomEnemies(clientId); //if a teammate is found in the room, request the state of room enemies from that player
-    //                break;
-    //            }
-    //        }
-    //        currAct->next;
-    //    }
-    //
-    //});
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneSpawnActors>([]() {
+        gSceneNum = (uint8_t) gPlayState->sceneNum;
+        gRoomNum = (uint8_t) gPlayState->roomCtx.curRoom.num;
+        if (gPlayState != nullptr ) {
+            //look for other teammate clients
+            for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
+                if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
+                    Anchor_RequestRoomEnemies(clientId); //if a teammate is found in the room, request the state of room enemies from that player
+                    break;
+                }
+            }
+        }
+    });
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnGameOver>([]() {
         if (pvpVulnerableTimer > 0) {
@@ -1884,6 +1877,7 @@ void Anchor_ApplyDamage(Actor* actor, u8 health) {
     payload["actorX"] = actor->prevPos.x;
     payload["actorY"] = actor->prevPos.y;
     payload["actorZ"] = actor->prevPos.z;
+    payload["quiet"] = true;
 
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
 }
@@ -1905,6 +1899,7 @@ void Anchor_ActorKill(Actor* actor) {
     payload["actorX"] = actor->prevPos.x;
     payload["actorY"] = actor->prevPos.y;
     payload["actorZ"] = actor->prevPos.z;
+    payload["quiet"] = true;
 
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
 }
@@ -1929,6 +1924,7 @@ void Anchor_SendRoomEnemies(uint32_t clientId, ActorCategory category) {
     std::vector<float> enemiesZ = {};
     std::vector<u8> enemiesHealth = {};
     std::vector<int> enemiesId = {};
+    std::vector<int> enemiesParams = {};
 
     ActorListEntry currList = gPlayState->actorCtx.actorLists[category];
     int numActors = currList.length;
@@ -1940,6 +1936,7 @@ void Anchor_SendRoomEnemies(uint32_t clientId, ActorCategory category) {
         enemiesZ.push_back((float)currAct->prevPos.z);
         enemiesHealth.push_back(currAct->colChkInfo.health);
         enemiesId.push_back((int)currAct->id);
+        enemiesParams.push_back((int)currAct->params);
         currAct = currAct->next;
     }
 
@@ -1952,7 +1949,9 @@ void Anchor_SendRoomEnemies(uint32_t clientId, ActorCategory category) {
     payload["enemiesY"] = enemiesY;
     payload["enemiesZ"] = enemiesZ;
     payload["enemiesHealth"] = enemiesHealth;
+    payload["enemiesParams"] = enemiesParams;
     payload["category"] = category==ACTORCAT_ENEMY ? 0:1;
+    payload["quiet"] = true;
 
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
 }
@@ -1974,17 +1973,6 @@ void Anchor_RequestTeleport(uint32_t clientId) {
     nlohmann::json payload;
 
     payload["type"] = "REQUEST_TELEPORT";
-    payload["targetClientId"] = clientId;
-
-    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
-}
-
-void Anchor_RequestTeleportAfterBoss(uint32_t clientId) {
-    if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
-
-    nlohmann::json payload;
-
-    payload["type"] = "REQUEST_TELEPORT_BOSS";
     payload["targetClientId"] = clientId;
 
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
