@@ -792,6 +792,7 @@ void BossFd2_Death(BossFd2* this, PlayState* play) {
                 if (!IS_BOSS_RUSH) {
                     Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_WARP1, 0.0f, 100.0f, 0.0f, 0, 0,
                                        0, WARP_DUNGEON_ADULT);
+                    GameInteractor_ExecuteOnBossDefeat(&this->actor);
                 } else {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_DOOR_WARP1, 0.0f, 100.0f, 0.0f, 0, 0, 0,
                                 WARP_DUNGEON_ADULT, true);

@@ -1155,6 +1155,7 @@ void BossGoma_Defeated(BossGoma* this, PlayState* play) {
                 if (!IS_BOSS_RUSH) {
                     Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_WARP1, childPos.x,
                                        this->actor.world.pos.y, childPos.z, 0, 0, 0, WARP_DUNGEON_CHILD);
+                    GameInteractor_ExecuteOnBossDefeat(&this->actor);
                 } else {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_DOOR_WARP1, childPos.x, this->actor.world.pos.y,
                                 childPos.z, 0, 0, 0, WARP_DUNGEON_ADULT, false);

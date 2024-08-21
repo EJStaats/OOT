@@ -1823,6 +1823,7 @@ void BossDodongo_DeathCutscene(BossDodongo* this, PlayState* play) {
                 func_8002DF54(play, &this->actor, 7);
                 if (!IS_BOSS_RUSH) {
                     Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_WARP1, -890.0f, -1523.76f, -3304.0f, 0, 0, 0, WARP_DUNGEON_CHILD);
+                    GameInteractor_ExecuteOnBossDefeat(&this->actor);
                 } else {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_DOOR_WARP1, -890.0f, -1523.76f, -3304.0f, 0, 0, 0, WARP_DUNGEON_ADULT, false);
                 }

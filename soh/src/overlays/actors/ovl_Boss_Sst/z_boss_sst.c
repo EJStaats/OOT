@@ -1211,6 +1211,7 @@ void BossSst_HeadFinish(BossSst* this, PlayState* play) {
         }
         BossSst_SetCameraTargets(1.0f, 7);
         this->effectMode = BONGO_NULL;
+        GameInteractor_ExecuteOnBossDefeat(&this->actor);
     } else if (this->timer == 0) {
         this->effects[0].status = 0;
         this->effects[1].status = -1;

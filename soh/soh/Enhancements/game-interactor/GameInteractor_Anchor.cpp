@@ -782,8 +782,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                     closestAct->colChkInfo.health = health;
                 } else {
                     //Kill a boss when their health goes to 0
-                    actorKillBuffer.push_back(closestAct);
-                    Anchor_RequestRoomEnemies(clientId);
+                    closestAct->colChkInfo.health = 1;
                 }
             }
         }
@@ -823,8 +822,6 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         }
     }
 
-    // As far as I can tell, this may never get used... because of the way boss actors are handled
-    // They don't seem to trigger the OnEnemyDefeat hook (at least not their parent actor)
     if (payload["type"] == "KILL_BOSS" && from_teammate){
         //check if client is from the same room and scene
         uint32_t clientId = payload["clientId"].get<uint32_t>();
@@ -835,28 +832,14 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
             ActorListEntry currList = gPlayState->actorCtx.actorLists[ACTORCAT_BOSS];
             int numActors = currList.length;
             Actor* currAct = currList.head;
-            Actor* closestAct = nullptr;
-            float closestDist = -1;
             
-            //loop through enemy actors, find the closest one to the damaged one with same ID. Damage it.
-            //in general, this list of actors should be relatively short ~10 or less. So this check shouldn't take long
+            //loop through boss actors, kill them all
             for (int i=0; i<numActors; ++i) {
-                //only consider actors with the same id
-                if (currAct->id == payload["actorID"]){
-                
-                    float distance = pow(currAct->prevPos.x - (float)payload["actorX"],2) + pow(currAct->prevPos.y - (float)payload["actorY"],2) + pow(currAct->prevPos.z - (float)payload["actorZ"],2);
-                    if (distance < closestDist || closestDist < 0) { //on finding the first actor with same ID, set closest distance to distance
-                        closestAct = currAct;
-                        closestDist = distance;
-                    }
-                }
+                actorKillBuffer.push_back(currAct);
                 currAct = currAct->next;
             }
-            //kill the actor, if found
-            if (closestAct != nullptr) {
-                actorKillBuffer.push_back(closestAct);
-            }
         }
+        //maybe manually spawn in the warp portal, case selector based on boss defeated?...
     }
 
     if (payload["type"] == "REQUEST_ROOM_ENEMIES") {
@@ -1707,7 +1690,7 @@ void Anchor_RegisterHooks() {
         for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
             if ( flagType == 3 && flag == 1 && IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
             //if a teammate is found in the room, make them teleport to you which "refreshes the room"
-                Anchor_TeleportToPlayer(clientId, true);    
+                //Anchor_TeleportToPlayer(clientId, true);    
             }
         }
     });
@@ -1724,9 +1707,13 @@ void Anchor_RegisterHooks() {
         }
     });
 
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnBossDefeat>([](void* refActor) {
+        Anchor_ActorKill((Actor*)refActor);
+    });
+
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneSpawnActors>([]() {
-        gSceneNum = (uint8_t) gPlayState->sceneNum;
-        gRoomNum = (uint8_t) gPlayState->roomCtx.curRoom.num;
+        gSceneNum = (uint8_t)gPlayState->sceneNum;
+        gRoomNum = (uint8_t)gPlayState->roomCtx.curRoom.num;
         if (gPlayState != nullptr ) {
             //look for other teammate clients
             for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {

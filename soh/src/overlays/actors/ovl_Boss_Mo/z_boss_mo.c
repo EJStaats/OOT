@@ -1120,6 +1120,7 @@ void BossMo_Tentacle(BossMo* this, PlayState* play) {
                         Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_WARP1,
                                            this->actor.world.pos.x, -280.0f, this->actor.world.pos.z, 0, 0, 0,
                                            WARP_DUNGEON_ADULT);
+                        GameInteractor_ExecuteOnBossDefeat(&this->actor);
                         Actor_Spawn(&play->actorCtx, play, ACTOR_ITEM_B_HEART, this->actor.world.pos.x + 200.0f,
                                     -280.0f, this->actor.world.pos.z, 0, 0, 0, 0, true);
                     } else {
