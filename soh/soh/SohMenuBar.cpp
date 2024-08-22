@@ -1624,7 +1624,7 @@ void DrawRemoteControlMenu() {
 
         ImGui::Text("Remote IP & Port");
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFontSize() * 5.7);
-        if (ImGui::InputText("##gRemote.IP", (char*)ip.c_str(), ip.capacity() + 1)) {
+        if (ImGui::InputText("##gRemote.IP", (char*)ip.c_str(), ip.capacity() + 10)) {
             CVarSetString("gRemote.IP", ip.c_str());
             LUS::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesOnNextTick();
         }
