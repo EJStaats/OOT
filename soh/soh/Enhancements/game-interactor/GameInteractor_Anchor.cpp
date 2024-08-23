@@ -832,12 +832,42 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
             ActorListEntry currList = gPlayState->actorCtx.actorLists[ACTORCAT_BOSS];
             int numActors = currList.length;
             Actor* currAct = currList.head;
-            
-            //loop through boss actors, kill them all
-            for (int i=0; i<numActors; ++i) {
-                actorKillBuffer.push_back(currAct);
-                currAct = currAct->next;
-            }
+
+            //if (currAct->id = ACTOR_BOSS_VA) {
+            //    s32 i;
+            //    s32 sp7C;
+            //    Player* player = GET_PLAYER(gPlayState);
+            //    static Vec3f sWarpPos[] = {
+            //        { 10.0f, 0.0f, 30.0f },
+            //        { 260.0f, 0.0f, -470.0f },
+            //        { -240.0f, 0.0f, -470.0f },
+            //    };
+            //    for (i = 2, sp7C = 2; i > 0; i--) {
+            //        if (Math_Vec3f_DistXYZ(&sWarpPos[i], &player->actor.world.pos) <
+            //            Math_Vec3f_DistXYZ(&sWarpPos[i - 1], &player->actor.world.pos)) {
+            //            sp7C = i - 1;
+            //        }
+            //    }
+            //    Actor_Spawn(&gPlayState->actorCtx, gPlayState, ACTOR_EN_RU1, sWarpPos[sp7C].x, sWarpPos[sp7C].y,
+            //                    sWarpPos[sp7C].z, 0, 0, 0, 0, true);
+//
+            //    for (int i=0; i<numActors; ++i) {
+            //        if (currAct->id = ACTOR_BOSS_VA && currAct->params == 19) {
+            //            //don't kill actor with param=19 since this is the door
+            //            currAct = currAct->next;
+            //            continue;
+            //        }
+            //        actorKillBuffer.push_back(currAct);
+            //        currAct = currAct->next;
+            //    } 
+            //                    
+            //} else {
+                //loop through boss actors, kill them all
+                for (int i=0; i<numActors; ++i) {
+                    actorKillBuffer.push_back(currAct);
+                    currAct = currAct->next;
+                }
+            //}
         }
         //maybe manually spawn in the warp portal, case selector based on boss defeated?...
     }
@@ -900,7 +930,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
             Actor* currAct = currList.head;
 
             for (int i=0;i<numActors;++i){
-                if (matched.size() == 0 || std::find(matched.begin(),matched.end(),i) == matched.end()) {
+                if (category==ACTORCAT_ENEMY && (matched.size() == 0 || std::find(matched.begin(),matched.end(),i) == matched.end())) {
                     actorKillBuffer.push_back(currAct);
                 }
                 currAct = currAct->next;
@@ -1683,14 +1713,13 @@ void Anchor_RegisterHooks() {
     });
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneFlagSet>([](int16_t sceneNum, int16_t flagType, int16_t flag) {
-        //after killing boss, check for the scene flag being set, the portal should be spawned, and now other clients can re-warp into
+        //after killing boss, check for the scene flag being set and now other clients can re-warp into
         //this room, spawning the portal for them
-        //check for the warp portal
         //check for flag type 3 to flag 1
         for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
             if ( flagType == 3 && flag == 1 && IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
             //if a teammate is found in the room, make them teleport to you which "refreshes the room"
-                //Anchor_TeleportToPlayer(clientId, true);    
+                Anchor_TeleportToPlayer(clientId, true);    
             }
         }
     });
@@ -1707,9 +1736,9 @@ void Anchor_RegisterHooks() {
         }
     });
 
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnBossDefeat>([](void* refActor) {
-        Anchor_ActorKill((Actor*)refActor);
-    });
+    //GameInteractor::Instance->RegisterGameHook<GameInteractor::OnBossDefeat>([](void* refActor) {
+    //    Anchor_ActorKill((Actor*)refActor);
+    //});
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneSpawnActors>([]() {
         gSceneNum = (uint8_t)gPlayState->sceneNum;
@@ -1717,7 +1746,8 @@ void Anchor_RegisterHooks() {
         if (gPlayState != nullptr ) {
             //look for other teammate clients
             for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
-                if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
+                if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum
+                    && gSceneNum != 19) { //barinade's lair causes crash when requesting room enemies, particularly after defeat
                     Anchor_RequestRoomEnemies(clientId); //if a teammate is found in the room, request the state of room enemies from that player
                     break;
                 }
