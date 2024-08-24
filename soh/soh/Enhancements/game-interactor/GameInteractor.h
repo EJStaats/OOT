@@ -265,6 +265,8 @@ public:
 
         static GameInteractionEffectQueryResult SpawnEnemyWithOffset(uint32_t enemyId, int32_t enemyParams);
         static GameInteractionEffectQueryResult SpawnActor(uint32_t actorId, int32_t actorParams);
+        static GameInteractionEffectQueryResult SpawnEnemyAtPosition(std::vector<int> id_Params, std::vector<float> pos);
+
     };
 
     private:

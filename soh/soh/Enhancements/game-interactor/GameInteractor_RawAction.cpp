@@ -650,6 +650,24 @@ GameInteractionEffectQueryResult GameInteractor::RawAction::SpawnEnemyWithOffset
     return GameInteractionEffectQueryResult::TemporarilyNotPossible;
 }
 
+GameInteractionEffectQueryResult GameInteractor::RawAction::SpawnEnemyAtPosition(std::vector<int> id_Params, std::vector<float> pos) {
+
+    if (!GameInteractor::CanSpawnActor()) {
+        return GameInteractionEffectQueryResult::TemporarilyNotPossible;
+    }
+
+    Player* player = GET_PLAYER(gPlayState);
+
+    // Generic spawn an actor at given position
+    if (Actor_Spawn(&gPlayState->actorCtx, gPlayState, id_Params[0], pos[0],
+                    pos[1], pos[2], 0, 0, 0, id_Params[1], 0) != NULL) {
+        return GameInteractionEffectQueryResult::Possible;
+    }
+
+    return GameInteractionEffectQueryResult::TemporarilyNotPossible;
+    
+}
+
 GameInteractionEffectQueryResult GameInteractor::RawAction::SpawnActor(uint32_t actorId, int32_t actorParams) {
 
     if (!GameInteractor::CanSpawnActor()) {

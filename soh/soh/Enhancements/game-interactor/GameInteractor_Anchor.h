@@ -110,7 +110,7 @@ void Anchor_GiveDungeonItem(int16_t sceneNum, uint16_t itemId);
 void Anchor_DamagePlayer(uint32_t actorIndex, u8 damageEffect, u8 damageValue);
 void Anchor_ApplyDamage(Actor* actor, u8 health);
 void Anchor_ActorKill(Actor* actor);
-void Anchor_RequestRoomEnemies(uint32_t clientId);
+void Anchor_RequestRoomEnemies();
 void Anchor_SendRoomEnemies(uint32_t clientId, ActorCategory category);
 void Anchor_GameComplete();
 void Anchor_RequestTeleport(uint32_t clientId);
