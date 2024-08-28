@@ -309,6 +309,14 @@ uint8_t gRoomNum = -1;
 // and waiting to kill them until player updates seems to work
 std::vector<Actor*> actorKillBuffer = {}; 
 std::vector<std::pair<std::vector<int>, std::vector<float>>> spawnBuffer = {};  //vector of pairs, of vectors, with ids, params, and positions
+
+//goma handling
+bool gomaSetup = false;
+bool gomaStun = false;
+bool gomaIsDamaged = false;
+bool gomaIsDefeated = false;
+bool gomaIsFallJump = false;
+
 void Anchor_DisplayMessage(AnchorMessage message = {}) {
     message.id = notificationId++;
     anchorMessages.push_back(message);
@@ -1009,7 +1017,11 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
             //damage the actor, if found
             if (closestAct != nullptr) {
                 u8 health = payload["health"];
-                if (health > 0) {
+                if ((int)closestAct->id == 40 && health != closestAct->colChkInfo.health){
+                    //specific handling for goma
+                    closestAct->colChkInfo.health = health;
+                    gomaIsDamaged = true;
+                } else if (health > 0) {
                     closestAct->colChkInfo.health = health;
                 } else {
                     //Kill a boss when their health goes to 0
@@ -1175,6 +1187,22 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
                 }
             }
         }
+    }
+
+    if (payload["type"] == "STUN_GOMA" && from_teammate) {
+        gomaStun = true;
+    }
+
+    if (payload["type"] == "SETUP_GOMA" && from_teammate) {
+        gomaSetup = true;
+    }
+
+    if (payload["type"] == "DEFEAT_GOMA" && from_teammate) {
+        gomaIsDefeated = true;
+    }
+
+    if (payload["type"] == "FALL_GOMA" && from_teammate) {
+        gomaIsFallJump = true;
     }
 }
 
@@ -1711,25 +1739,15 @@ void Anchor_RegisterHooks() {
         }
     });
 
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneFlagSet>([](int16_t sceneNum, int16_t flagType, int16_t flag) {
-        //after killing boss, check for the scene flag being set and now other clients can re-warp into
-        //this room, spawning the portal for them
-        //check for flag type 3 to flag 1
-        for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
-            if ( flagType == 3 && flag == 1 && IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
-            //if a teammate is found in the room, make them teleport to you which "refreshes the room"
-                Anchor_TeleportToPlayer(clientId, true);    
-            }
-        }
-    });
-
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnEnemyDefeat>([](void* refActor) {
         Anchor_ActorKill((Actor*)refActor);
         for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
             if ( IsTeammate(client) && client.roomIndex == gRoomNum && client.sceneNum == gSceneNum) {
                 //if a teammate is found in the room, send the new state of room enemies to that player
                 //this is used to update enemies in case an killed enemy spawns children
-                Anchor_SendRoomEnemies(clientId, (ActorCategory)((Actor*)refActor)->category);
+                if (((Actor*)refActor)->id != ACTOR_EN_GOMA) {
+                    Anchor_SendRoomEnemies(clientId, (ActorCategory)((Actor*)refActor)->category);
+                }
             }
         }
     });
@@ -2004,6 +2022,81 @@ void Anchor_TeleportToPlayer(uint32_t clientId, bool free) {
     
     GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
 }
+
+bool Anchor_GomaStunned() {
+    return gomaStun;
+}
+
+void Anchor_SendGomaStunned() {
+    if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
+    nlohmann::json payload;
+    payload["type"] = "STUN_GOMA";
+    payload["quiet"] = true;
+    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+}
+
+void Anchor_GomaUnstun() {
+    gomaStun = false;
+}
+
+bool Anchor_IsGomaDamaged() {
+    return gomaIsDamaged;
+}
+
+void Anchor_UnsetGomaDamaged() {
+    gomaIsDamaged = false;
+}
+
+void Anchor_SendGomaSetup() {
+    if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
+    nlohmann::json payload;
+    payload["type"] = "SETUP_GOMA";
+    payload["quiet"] = true;
+    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+}
+
+bool Anchor_GomaSetup() {
+    return gomaSetup;
+}
+
+void Anchor_UnsetGoma() {
+    gomaSetup = false;
+}
+
+void Anchor_SendGomaDefeated() {
+    if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
+    nlohmann::json payload;
+    payload["type"] = "DEFEAT_GOMA";
+    payload["quiet"] = true;
+    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+}
+
+bool Anchor_IsGomaDefeated() {
+    return gomaIsDefeated;
+}
+
+void Anchor_UndefeatGoma() {
+    gomaIsDefeated = false;
+}
+
+void Anchor_SendGomaFallJump() {
+    if (!GameInteractor::Instance->isRemoteInteractorConnected || !GameInteractor::Instance->IsSaveLoaded()) return;
+    nlohmann::json payload;
+    payload["type"] = "FALL_GOMA";
+    payload["quiet"] = true;
+    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+    
+}
+
+bool Anchor_GomaFallJump() {
+    return gomaIsFallJump;
+}
+
+void Anchor_UnsetGomaFallJump() {
+    gomaIsFallJump = false;
+}
+
+
 
 const ImVec4 GRAY = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 const ImVec4 WHITE = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);

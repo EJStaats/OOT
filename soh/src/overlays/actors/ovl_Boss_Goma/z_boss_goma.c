@@ -6,6 +6,7 @@
 #include "overlays/actors/ovl_Door_Warp1/z_door_warp1.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Anchor.h"
 
 #define FLAGS (ACTOR_FLAG_TARGETABLE | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_WHILE_CULLED | ACTOR_FLAG_DRAW_WHILE_CULLED)
 
@@ -446,8 +447,12 @@ void BossGoma_SetupCeilingIdle(BossGoma* this) {
 void BossGoma_SetupFallJump(BossGoma* this) {
     // When in Enemy Randomizer, reset the state of the spawned Gohma Larva because it's not done
     // by the (non-existent) Larva themselves.
-    if (CVarGetInteger("gRandomizedEnemies", 0)) {
+    // in co-op, if one play has cleared the larva, they send a signal to their teammates that it's time to setup a fall jump
+    if (CVarGetInteger("gRandomizedEnemies", 0) || Anchor_GomaFallJump()) {
         this->childrenGohmaState[0] = this->childrenGohmaState[1] = this->childrenGohmaState[2] = 0;
+    }
+    if (Anchor_GomaFallJump()) {
+        Anchor_RequestRoomEnemies();
     }
     Animation_Change(&this->skelanime, &gGohmaLandAnim, 1.0f, 0.0f, 0.0f, ANIMMODE_ONCE, -5.0f);
     this->actionFunc = BossGoma_FallJump;
@@ -673,6 +678,11 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
     Camera* cam;
     Player* player = GET_PLAYER(play);
     s32 pad[2];
+    if (Anchor_GomaSetup() && this->actionState < 4) {
+        BossGoma_SetupEncounterState4(this, play);
+        Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_SHUTTER, 164.72f,
+                                       -480.0f, 397.68002f, 0, -0x705C, 0, 0x180);
+    }
 
     Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
 
@@ -789,6 +799,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
 
             if (this->lookedAtFrames > 15) {
                 BossGoma_SetupEncounterState4(this, play);
+                Anchor_SendGomaSetup();
             }
             break;
 
@@ -865,6 +876,9 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
                                  Animation_GetLastFrame(&gGohmaInitialLandingAnim), ANIMMODE_ONCE, -5.0f);
                 player->actor.world.pos.x = 0.0f;
                 player->actor.world.pos.z = -30.0f;
+                if (Anchor_GomaSetup()) {
+                    player->actor.world.pos.x = 20.0f;
+                }
             }
             break;
 
@@ -920,7 +934,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
             if (Animation_OnFrame(&this->skelanime, 40.0f)) {
                 Audio_PlayActorSound2(&this->actor, NA_SE_EN_GOMA_CRY1);
 
-                if (!Flags_GetEventChkInf(EVENTCHKINF_BEGAN_GOHMA_BATTLE)) {
+                if (!Flags_GetEventChkInf(EVENTCHKINF_BEGAN_GOHMA_BATTLE) || Anchor_GomaSetup()) {
                     TitleCard_InitBossName(play, &play->actorCtx.titleCtx,
                                            SEGMENTED_TO_VIRTUAL(gGohmaTitleCardENGTex), 160, 180, 128, 40, true);
                 }
@@ -967,6 +981,7 @@ void BossGoma_Encounter(BossGoma* this, PlayState* play) {
                 func_80064534(play, &play->csCtx);
                 func_8002DF54(play, &this->actor, 7);
             }
+            Anchor_UnsetGoma();
             break;
     }
 
@@ -1419,6 +1434,7 @@ void BossGoma_FloorStunned(BossGoma* this, PlayState* play) {
     Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 1.0f);
 
     if (this->framesUntilNextAction == 0) {
+        //Anchor_GomaUnstun();
         BossGoma_SetupFloorMain(this);
         if (this->patienceTimer == 0 && this->actor.xzDistToPlayer < 130.0f) {
             this->timer = 20;
@@ -1568,9 +1584,20 @@ void BossGoma_CeilingIdle(BossGoma* this, PlayState* play) {
             // if no child gohma has been spawned
             BossGoma_SetupCeilingPrepareSpawnGohmas(this);
         } else if ((this->childrenGohmaState[0] < 0 && this->childrenGohmaState[1] < 0 && this->childrenGohmaState[2] < 0) ||
-                   (nearbyEnTest == NULL && CVarGetInteger("gRandomizedEnemies", 0))) {
+                   (nearbyEnTest == NULL && CVarGetInteger("gRandomizedEnemies", 0) || Anchor_GomaFallJump())) {
             // In authentic gameplay, check if all baby Ghomas are dead. In Enemy Randomizer, check if there's no enemies alive.
+            // in anchor co-op, check if the signal has been sent from a teammate, kill all babies
             BossGoma_SetupFallJump(this);
+            if (!Anchor_GomaFallJump()) {
+                Anchor_SendGomaFallJump();
+            } else {
+                Actor* babyGoma = play->actorCtx.actorLists[ACTORCAT_ENEMY].head;
+                while (babyGoma != NULL) {
+                    Actor_Kill(babyGoma);
+                    babyGoma = babyGoma->next;
+                }
+            }
+            Anchor_UnsetGomaFallJump();
         } else {
             for (i = 0; i < ARRAY_COUNT(this->childrenGohmaState); i++) {
                 if (this->childrenGohmaState[i] == 0) {
@@ -1818,11 +1845,35 @@ void BossGoma_UpdateTailLimbsScale(BossGoma* this) {
 }
 
 void BossGoma_UpdateHit(BossGoma* this, PlayState* play) {
+    if (Anchor_IsGomaDefeated()) {
+        Anchor_UndefeatGoma();
+        BossGoma_SetupDefeated(this, play);
+        Enemy_StartFinishingBlow(play, &this->actor);
+    }
+    if (Anchor_GomaStunned()) {
+        BossGoma_SetupFallStruckDown(this);
+        Audio_PlayActorSound2(&this->actor, NA_SE_EN_GOMA_DAM2);
+        Anchor_GomaUnstun();
+        Actor* babyGoma = play->actorCtx.actorLists[ACTORCAT_ENEMY].head;
+        while (babyGoma != NULL) {
+            Actor_Kill(babyGoma);
+            babyGoma = babyGoma->next;
+        }
+    }
     if (this->invincibilityFrames != 0) {
         this->invincibilityFrames--;
     } else {
         ColliderInfo* acHitInfo = this->collider.elements[0].info.acHitInfo;
         s32 damage;
+
+        if (Anchor_IsGomaDamaged()) {
+            if ((s8)this->actor.colChkInfo.health > 0) {
+                Audio_PlayActorSound2(&this->actor, NA_SE_EN_GOMA_DAM1);
+                BossGoma_SetupFloorDamaged(this);
+                EffectSsSibuki_SpawnBurst(play, &this->actor.focus.pos);
+            }
+            Anchor_UnsetGomaDamaged();
+        }
 
         if (this->eyeClosedTimer == 0 && this->actionFunc != BossGoma_CeilingSpawnGohmas &&
             (this->collider.elements[0].info.bumperFlags & BUMP_HIT)) {
@@ -1831,9 +1882,12 @@ void BossGoma_UpdateHit(BossGoma* this, PlayState* play) {
             if (this->actionFunc == BossGoma_CeilingMoveToCenter || this->actionFunc == BossGoma_CeilingIdle ||
                 this->actionFunc == BossGoma_CeilingPrepareSpawnGohmas) {
                 BossGoma_SetupFallStruckDown(this);
+                if (!Anchor_GomaStunned()) {
+                    Anchor_SendGomaStunned();
+                }
                 Audio_PlayActorSound2(&this->actor, NA_SE_EN_GOMA_DAM2);
             } else if (this->actionFunc == BossGoma_FloorStunned &&
-                       (damage = CollisionCheck_GetSwordDamage(acHitInfo->toucher.dmgFlags, play)) != 0) {
+                       (damage = CollisionCheck_GetSwordDamage(acHitInfo->toucher.dmgFlags, play)) != 0  ) {
                 this->actor.colChkInfo.health -= damage;
 
                 if ((s8)this->actor.colChkInfo.health > 0) {
@@ -1843,17 +1897,21 @@ void BossGoma_UpdateHit(BossGoma* this, PlayState* play) {
                 } else {
                     BossGoma_SetupDefeated(this, play);
                     Enemy_StartFinishingBlow(play, &this->actor);
+                    Anchor_SendGomaDefeated();
                     gSaveContext.sohStats.itemTimestamp[TIMESTAMP_DEFEAT_GOHMA] = GAMEPLAYSTAT_TOTAL_TIME;
                     BossRush_HandleCompleteBoss(play);
                 }
 
                 this->invincibilityFrames = 10;
             } else if (this->actionFunc != BossGoma_FloorStunned && this->patienceTimer != 0 &&
-                       (acHitInfo->toucher.dmgFlags & 0x00000005)) {
+                       (acHitInfo->toucher.dmgFlags & 0x00000005) ) {
                 Audio_PlayActorSound2(&this->actor, NA_SE_EN_GOMA_DAM2);
                 Audio_StopSfxById(NA_SE_EN_GOMA_CRY1);
                 this->invincibilityFrames = 10;
                 BossGoma_SetupFloorStunned(this);
+                if (!Anchor_GomaStunned()) {
+                    Anchor_SendGomaStunned();
+                }
                 this->sfxFaintTimer = 100;
 
                 if (acHitInfo->toucher.dmgFlags & 1) {

@@ -116,6 +116,21 @@ void Anchor_GameComplete();
 void Anchor_RequestTeleport(uint32_t clientId);
 void Anchor_RequestTeleportAfterBoss(uint32_t clientId);
 void Anchor_TeleportToPlayer(uint32_t clientId, bool free);
+//Goma things
+void Anchor_SendGomaSetup();
+void Anchor_UnsetGoma();
+bool Anchor_GomaSetup();
+bool Anchor_GomaStunned();
+void Anchor_SendGomaStunned();
+void Anchor_GomaUnstun();
+bool Anchor_IsGomaDamaged();
+void Anchor_UnsetGomaDamaged();
+void Anchor_SendGomaDefeated();
+bool Anchor_IsGomaDefeated();
+void Anchor_UndefeatGoma();
+void Anchor_SendGomaFallJump();
+bool Anchor_GomaFallJump();
+void Anchor_UnsetGomaFallJump();
 
 #ifdef __cplusplus
 }
