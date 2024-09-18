@@ -116,6 +116,7 @@ void Anchor_GameComplete();
 void Anchor_RequestTeleport(uint32_t clientId);
 void Anchor_RequestTeleportAfterBoss(uint32_t clientId);
 void Anchor_TeleportToPlayer(uint32_t clientId, bool free);
+
 //Goma things
 void Anchor_SendGomaSetup();
 void Anchor_UnsetGoma();
@@ -131,6 +132,8 @@ void Anchor_UndefeatGoma();
 void Anchor_SendGomaFallJump();
 bool Anchor_GomaFallJump();
 void Anchor_UnsetGomaFallJump();
+
+//dodongo boss things
 
 #ifdef __cplusplus
 }
