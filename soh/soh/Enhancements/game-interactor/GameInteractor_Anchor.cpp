@@ -304,11 +304,14 @@ uint16_t speedBuffTimer = 0;
 uint16_t invincibilityTimer = 0;
 uint8_t gSceneNum = -1;
 uint8_t gRoomNum = -1;
+bool host = true;
 // the kill buffer is used along with the update player hook to sequentially kill enemies
 // Ran into a bug where killing enemies in a list did not work, but adding them to a kill buffer
 // and waiting to kill them until player updates seems to work
 std::vector<Actor*> actorKillBuffer = {}; 
 std::vector<std::pair<std::vector<int>, std::vector<float>>> spawnBuffer = {};  //vector of pairs, of vectors, with ids, params, and positions
+
+
 void Anchor_DisplayMessage(AnchorMessage message = {}) {
     message.id = notificationId++;
     anchorMessages.push_back(message);
@@ -346,6 +349,7 @@ void Anchor_PushSettingsToRemote() {
     // If we're asked to push, set settingsCopied to true since we were either the
     // first in the room, or we've already had our settings copied.
     settingsCopied = true;
+    Anchor_ClaimHost();
 
     nlohmann::json payload;
     payload["type"] = "PUSH_ANCHOR_SETTINGS";
@@ -462,6 +466,8 @@ void GameInteractorAnchor::Disable() {
 
     isEnabled = false;
     settingsCopied = false;
+    if (host) { Anchor_WillHost(); }
+    host = true;
     GameInteractor::Instance->DisableRemoteInteractor();
 
     GameInteractorAnchor::AnchorClients.clear();
@@ -741,6 +747,7 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         Anchor_CopySettingsFromRemote(payload);
     }
     if (payload["type"] == "REQUEST_ANCHOR_SETTINGS") {
+        if (!host) {return;}
         Anchor_PushSettingsToRemote();
     }
     if (payload["type"] == "ALL_CLIENT_DATA") {
@@ -813,6 +820,14 @@ void GameInteractorAnchor::HandleRemoteJson(nlohmann::json payload) {
         auto check = payload["locationIndex"].get<uint32_t>();
         auto data = payload["checkData"].get<RandomizerCheckTrackerData>();
         CheckTracker::UpdateCheck(check, data);
+    }
+    if (payload["type"] == "WILL_HOST") {
+        Anchor_ClaimHost();
+    }
+    if (payload["type"] == "CLAIM_HOST") {
+        if (from_teammate) {
+            host = false;
+        }
     }
     if (payload["type"] == "ENTRANCE_DISCOVERED") {
         if (!from_teammate) {
@@ -1762,6 +1777,35 @@ void Anchor_RegisterHooks() {
             GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
         }
     });
+}
+
+void Anchor_WillHost() {
+    uint32_t targetClientId = 0;
+    for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
+        if (IsTeammate(client)) {
+            targetClientId = clientId;
+            break;
+        }
+    }
+    if (targetClientId == 0 ) { return; }
+    nlohmann::json payload;
+
+    payload["type"] = "WILL_HOST";
+    payload["targetClientId"]= targetClientId;
+
+    GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+}
+
+void Anchor_ClaimHost() {
+    host = true;
+    for (auto& [clientId, client] : GameInteractorAnchor::AnchorClients) {
+        if (IsTeammate(client)) {
+            nlohmann::json payload;
+            payload["type"] = "CLAIM_HOST";
+            payload["targetClientId"] = clientId;
+            GameInteractorAnchor::Instance->TransmitJsonToRemote(payload);
+        }
+    }
 }
 
 void Anchor_EntranceDiscovered(uint16_t entranceIndex) {

@@ -100,6 +100,8 @@ Vec3s* Anchor_GetClientJointTable(uint32_t actorIndex);
 PlayerData Anchor_GetClientPlayerData(uint32_t actorIndex);
 Color_RGB8 Anchor_GetClientColor(uint32_t actorIndex);
 void Anchor_RefreshClientActors();
+void Anchor_WillHost();
+void Anchor_ClaimHost();
 void Anchor_EntranceDiscovered(uint16_t entranceIndex);
 void Anchor_UpdateCheckData(uint32_t locationIndex);
 void Anchor_UpdateBeansBought(uint8_t amount);
