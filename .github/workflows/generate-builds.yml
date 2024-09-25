@@ -85,7 +85,7 @@ jobs:
         sudo port install $(cat .github/workflows/macports-deps.txt)
         brew install ninja
     - name: Download soh.otr
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v3
       with:
         name: soh.otr
     - name: Build SoH
@@ -98,7 +98,7 @@ jobs:
         mv _packages/*.dmg SoH.dmg
         mv README.md readme.txt
     - name: Upload build
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: soh-mac
         path: |
