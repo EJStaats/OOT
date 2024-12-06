@@ -1713,7 +1713,8 @@ void Anchor_RegisterHooks() {
             if (actorKillBuffer[0] == nullptr) {
                 Anchor_DisplayMessage( { .message = "Actor to be killed was a nullptr"});
             }
-            Actor_Kill(actorKillBuffer[0]);
+            Actor_Delete(&gPlayState->actorCtx, actorKillBuffer[0], gPlayState);
+            //Actor_Kill(actorKillBuffer[0]);
             //Actor_Destroy(actorKillBuffer[0], gPlayState); // not sure if Actor_Destory or Actor_Kill is correct here...
             actorKillBuffer.erase(actorKillBuffer.begin());
         }
@@ -1724,6 +1725,15 @@ void Anchor_RegisterHooks() {
                 spawnBuffer.erase(spawnBuffer.begin());
             }
         }
+    });
+
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
+        ActorListEntry currList = gPlayState->actorCtx.actorLists[ACTORCAT_ENEMY];
+        Actor* currAct = currList.head;
+        if (currAct != nullptr) {
+            //std::cout << (int)currAct->flags << std::endl;
+        }
+
     });
 
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneFlagSet>([](int16_t sceneNum, int16_t flagType, int16_t flag) {
