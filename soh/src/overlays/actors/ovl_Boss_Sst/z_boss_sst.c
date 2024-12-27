@@ -12,6 +12,7 @@
 #include "overlays/actors/ovl_Door_Warp1/z_door_warp1.h"
 #include "soh/frame_interpolation.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #define FLAGS (ACTOR_FLAG_TARGETABLE | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_WHILE_CULLED | ACTOR_FLAG_DRAW_WHILE_CULLED | ACTOR_FLAG_DRAGGED_BY_HOOKSHOT)
 
@@ -1211,6 +1212,7 @@ void BossSst_HeadFinish(BossSst* this, PlayState* play) {
         }
         BossSst_SetCameraTargets(1.0f, 7);
         this->effectMode = BONGO_NULL;
+        GameInteractor_ExecuteOnBossDefeat(&this->actor);
     } else if (this->timer == 0) {
         this->effects[0].status = 0;
         this->effects[1].status = -1;

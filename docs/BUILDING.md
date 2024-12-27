@@ -33,9 +33,9 @@ _Note: Instructions assume using powershell_
 cd Shipwright
 
 # Setup cmake project
-& 'C:\Program Files\CMake\bin\cmake' -S . -B "build/x64" -G "Visual Studio 17 2022" -T v142 -A x64 # -DCMAKE_BUILD_TYPE:STRING=Release (if you're packaging)
+& 'C:\Program Files\CMake\bin\cmake' -S . -B "build/x64" -G "Visual Studio 17 2022" -T v142 -A x64 -DBUILD_REMOTE_CONTROL=1 # -DCMAKE_BUILD_TYPE:STRING=Release (if you're packaging)
 # or for VS2019
-& 'C:\Program Files\CMake\bin\cmake' -S . -B "build/x64" -G "Visual Studio 16 2019" -T v142 -A x64
+& 'C:\Program Files\CMake\bin\cmake' -S . -B "build/x64" -G "Visual Studio 16 2019" -T v142 -A x64 -DBUILD_REMOTE_CONTROL=1
 # Extract assets & generate OTR (run this anytime you need to regenerate OTR)
 & 'C:\Program Files\CMake\bin\cmake.exe' --build .\build\x64 --target ExtractAssets # --config Release (if you're packaging)
 # Compile project
@@ -99,7 +99,7 @@ git submodule update --init
 # Copy the baserom to the OTRExporter folder
 cp <path to your ROM> OTRExporter
 # Generate Ninja project
-cmake -H. -Bbuild-cmake -GNinja # -DCMAKE_BUILD_TYPE:STRING=Release (if you're packaging) -DPython3_EXECUTABLE=$(which python3) (if you are using non-standard Python installations such as PyEnv)
+cmake -H. -Bbuild-cmake -GNinja -DBUILD_REMOTE_CONTROL=1 # -DCMAKE_BUILD_TYPE:STRING=Release (if you're packaging) -DPython3_EXECUTABLE=$(which python3) (if you are using non-standard Python installations such as PyEnv)
 # Extract assets & generate OTR (run this anytime you need to regenerate OTR)
 cmake --build build-cmake --target ExtractAssets
 # Compile the project
@@ -145,7 +145,7 @@ git submodule update --init
 # Copy the baserom to the OTRExporter folder
 cp <path to your ROM> OTRExporter
 # Generate Ninja project
-cmake -H. -Bbuild-cmake -GNinja # -DCMAKE_BUILD_TYPE:STRING=Release (if you're packaging)
+cmake -H. -Bbuild-cmake -GNinja -DBUILD_REMOTE_CONTROL=1 # -DCMAKE_BUILD_TYPE:STRING=Release (if you're packaging)
 # Extract assets & generate OTR (run this anytime you need to regenerate OTR)
 cmake --build build-cmake --target ExtractAssets
 # Compile the project

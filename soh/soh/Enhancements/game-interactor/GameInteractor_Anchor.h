@@ -100,6 +100,8 @@ Vec3s* Anchor_GetClientJointTable(uint32_t actorIndex);
 PlayerData Anchor_GetClientPlayerData(uint32_t actorIndex);
 Color_RGB8 Anchor_GetClientColor(uint32_t actorIndex);
 void Anchor_RefreshClientActors();
+void Anchor_WillHost();
+void Anchor_ClaimHost();
 void Anchor_EntranceDiscovered(uint16_t entranceIndex);
 void Anchor_UpdateCheckData(uint32_t locationIndex);
 void Anchor_UpdateBeansBought(uint8_t amount);
@@ -108,9 +110,14 @@ void Anchor_ConsumeAdultTradeItem(uint8_t itemId);
 void Anchor_UpdateKeyCount(int16_t sceneNum, int8_t amount);
 void Anchor_GiveDungeonItem(int16_t sceneNum, uint16_t itemId);
 void Anchor_DamagePlayer(uint32_t actorIndex, u8 damageEffect, u8 damageValue);
+void Anchor_ApplyDamage(Actor* actor, u8 health);
+void Anchor_ActorKill(Actor* actor);
+void Anchor_RequestRoomEnemies();
+void Anchor_SendRoomEnemies(uint32_t clientId, ActorCategory category);
 void Anchor_GameComplete();
 void Anchor_RequestTeleport(uint32_t clientId);
-void Anchor_TeleportToPlayer(uint32_t clientId);
+void Anchor_RequestTeleportAfterBoss(uint32_t clientId);
+void Anchor_TeleportToPlayer(uint32_t clientId, bool free);
 
 #ifdef __cplusplus
 }

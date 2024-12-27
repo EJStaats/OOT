@@ -5,6 +5,7 @@
 #include "overlays/actors/ovl_Door_Warp1/z_door_warp1.h"
 #include "soh/frame_interpolation.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #include <string.h>
 
@@ -2798,6 +2799,7 @@ void BossTw_TwinrovaDeathCS(BossTw* this, PlayState* play) {
                 if (!IS_BOSS_RUSH) {
                     Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_WARP1, 600.0f, 230.0f, 0.0f, 0,
                                        0, 0, WARP_DUNGEON_ADULT);
+                    GameInteractor_ExecuteOnBossDefeat(&this->actor);
                     Actor_Spawn(&play->actorCtx, play, ACTOR_ITEM_B_HEART, -600.0f, 230.f, 0.0f, 0, 0, 0, 0, true);
                 } else {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_DOOR_WARP1, 600.0f, 230.0f, 0.0f, 0, 0, 0,

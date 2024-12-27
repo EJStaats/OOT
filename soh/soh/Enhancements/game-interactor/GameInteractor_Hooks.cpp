@@ -78,6 +78,10 @@ void GameInteractor_ExecuteOnEnemyDefeat(void* actor) {
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnEnemyDefeat>(actor);
 }
 
+void GameInteractor_ExecuteOnBossDefeat(void* actor) {
+    GameInteractor::Instance->ExecuteHooks<GameInteractor::OnBossDefeat>(actor);
+}
+
 void GameInteractor_ExecuteOnPlayerBonk() {
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnPlayerBonk>();
 }

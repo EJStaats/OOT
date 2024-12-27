@@ -11,6 +11,7 @@
 #include "vt.h"
 #include "soh/frame_interpolation.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #define FLAGS (ACTOR_FLAG_TARGETABLE | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_WHILE_CULLED | ACTOR_FLAG_DRAW_WHILE_CULLED)
 
@@ -792,6 +793,7 @@ void BossFd2_Death(BossFd2* this, PlayState* play) {
                 if (!IS_BOSS_RUSH) {
                     Actor_SpawnAsChild(&play->actorCtx, &this->actor, play, ACTOR_DOOR_WARP1, 0.0f, 100.0f, 0.0f, 0, 0,
                                        0, WARP_DUNGEON_ADULT);
+                    GameInteractor_ExecuteOnBossDefeat(&this->actor);
                 } else {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_DOOR_WARP1, 0.0f, 100.0f, 0.0f, 0, 0, 0,
                                 WARP_DUNGEON_ADULT, true);

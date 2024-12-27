@@ -16,6 +16,7 @@
 
 #include "soh/frame_interpolation.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 
 #define FLAGS (ACTOR_FLAG_TARGETABLE | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_WHILE_CULLED | ACTOR_FLAG_DRAW_WHILE_CULLED)
 
@@ -1668,6 +1669,7 @@ void BossVa_BodyDeath(BossVa* this, PlayState* play) {
                 if (!IS_BOSS_RUSH) {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_EN_RU1, sWarpPos[sp7C].x, sWarpPos[sp7C].y,
                                 sWarpPos[sp7C].z, 0, 0, 0, 0, true);
+                    GameInteractor_ExecuteOnBossDefeat(&this->actor);
                 } else {
                     Actor_Spawn(&play->actorCtx, play, ACTOR_DOOR_WARP1, sWarpPos[sp7C].x, sWarpPos[sp7C].y,
                                 sWarpPos[sp7C].z, 0, 0, 0, WARP_DUNGEON_ADULT, false);

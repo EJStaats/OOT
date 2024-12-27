@@ -44,42 +44,42 @@ jobs:
         retention-days: 1
   build-macos:
     needs: generate-soh-otr
-    runs-on: ${{ (vars.MAC_RUNNER && fromJSON(vars.MAC_RUNNER)) || 'macos-12' }}
+    runs-on: macos-14
     steps:
     - uses: actions/checkout@v3
       with:
         submodules: true
     - name: ccache
-      uses: hendrikmuhs/ccache-action@v1.2
+      uses: hendrikmuhs/ccache-action@v1.2.13
       with:
-        key: ${{ runner.os }}-ccache
+        create-symlink: true
+        key: ${{ runner.os }}-14-ccache-${{ github.ref }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-14-ccache-${{ github.ref }}
+          ${{ runner.os }}-14-ccache-
     - name: Install gtar wrapper
-      if: ${{ !vars.MAC_RUNNER }}
       run: |
-        sudo mv /usr/local/bin/gtar /usr/local/bin/gtar.orig
-        sudo cp .github/workflows//gtar /usr/local/bin/gtar
-        sudo chmod +x /usr/local/bin/gtar
+        sudo mv /opt/homebrew/bin/gtar /opt/homebrew/bin/gtar.orig
+        sudo cp .github/workflows//gtar /opt/homebrew/bin/gtar
+        sudo chmod +x /opt/homebrew/bin/gtar
     - name: Cache MacPorts
       id: cache-macports
-      if: ${{ !vars.MAC_RUNNER }}
       uses: actions/cache@v2
       with:
         path: /opt/local/
-        key: ${{ runner.os }}-macports-${{ hashFiles('.github/workflows/macports-deps.txt') }}
+        key: ${{ runner.os }}-14-macports-${{ hashFiles('.github/workflows/macports-deps.txt') }}
         restore-keys: |
-          ${{ runner.os }}-macports-
+          ${{ runner.os }}-14-macports-
     - name: Install MacPorts (if necessary)
-      if: ${{ !vars.MAC_RUNNER }}
       run: |
         if [ -d /opt/local/ ]; then
           echo "MacPorts already installed"
         else
-          wget https://github.com/macports/macports-base/releases/download/v2.7.2/MacPorts-2.7.2-12-Monterey.pkg
-          sudo installer -pkg ./MacPorts-2.7.2-12-Monterey.pkg -target /
+          wget https://github.com/macports/macports-base/releases/download/v2.9.3/MacPorts-2.9.3-14-Sonoma.pkg
+          sudo installer -pkg ./MacPorts-2.9.3-14-Sonoma.pkg -target /
         fi
         echo "/opt/local/bin:/opt/local/sbin" >> $GITHUB_PATH
     - name: Install dependencies
-      if: ${{ !vars.MAC_RUNNER }}
       run: |
         brew uninstall --ignore-dependencies libpng
         sudo port install $(cat .github/workflows/macports-deps.txt)
@@ -90,7 +90,6 @@ jobs:
         name: soh.otr
     - name: Build SoH
       run: |
-        export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
         cmake --no-warn-unused-cli -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DBUILD_REMOTE_CONTROL=1
         cmake --build build-cmake --config Release --parallel 10
         mv soh.otr build-cmake/soh
@@ -175,87 +174,6 @@ jobs:
         name: soh-linux-${{ matrix.archive-suffix }}
         path: |
           soh.appimage
-          readme.txt
-  build-switch:
-    needs: generate-soh-otr
-    runs-on: ${{ (vars.LINUX_RUNNER && fromJSON(vars.LINUX_RUNNER)) || 'ubuntu-latest' }}
-    container:
-      image: devkitpro/devkita64:latest
-    steps:
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build
-    - name: Fix dubious ownership error
-      if: ${{ vars.LINUX_RUNNER }}
-      run: git config --global --add safe.directory '*'
-    - uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: ccache
-      uses: hendrikmuhs/ccache-action@v1.2
-      with:
-        key: ${{ runner.os }}-switch-ccache
-    - name: Build SoH
-      run: |
-        cmake -H. -Bbuild-switch -GNinja -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache
-        cmake --build build-switch --target soh_nro -j3
-
-        mv build-switch/soh/*.nro soh.nro
-        mv README.md readme.txt
-    - name: Download soh.otr
-      uses: actions/download-artifact@v3
-      with:
-        name: soh.otr
-    - name: Upload build
-      uses: actions/upload-artifact@v3
-      with:
-        name: soh-switch
-        path: |
-          soh.nro
-          soh.otr
-          readme.txt
-  build-wiiu:
-    needs: generate-soh-otr
-    runs-on: ${{ (vars.LINUX_RUNNER && fromJSON(vars.LINUX_RUNNER)) || 'ubuntu-latest' }}
-    container:
-      image: devkitpro/devkitppc:20230110
-    steps:
-    - name: Install dependencies
-      if: ${{ !vars.LINUX_RUNNER }}
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build
-    - uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: ccache
-      uses: hendrikmuhs/ccache-action@v1.2
-      with:
-        key: ${{ runner.os }}-wiiu-ccache
-    - name: Build SoH
-      run: |
-        cmake -H. -Bbuild-wiiu -GNinja -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/WiiU.cmake -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache
-        cmake --build build-wiiu --target soh_wuhb --config Release -j3
-
-        mv build-wiiu/soh/*.rpx soh.rpx
-        mv build-wiiu/soh/*.wuhb soh.wuhb
-        mv README.md readme.txt
-      env:
-        DEVKITPRO: /opt/devkitpro
-        DEVKITPPC: /opt/devkitpro/devkitPPC
-    - name: Download soh.otr
-      uses: actions/download-artifact@v3
-      with:
-        name: soh.otr
-    - name: Upload build
-      uses: actions/upload-artifact@v3
-      with:
-        name: soh-wiiu
-        path: |
-          soh.rpx
-          soh.wuhb
-          soh.otr
           readme.txt
   build-windows:
     needs: generate-soh-otr

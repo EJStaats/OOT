@@ -190,6 +190,7 @@ public:
     DEFINE_HOOK(OnActorUpdate, void(void* actor));
     DEFINE_HOOK(OnActorKill, void(void* actor));
     DEFINE_HOOK(OnEnemyDefeat, void(void* actor));
+    DEFINE_HOOK(OnBossDefeat, void(void* actor));
     DEFINE_HOOK(OnPlayerBonk, void());
     DEFINE_HOOK(OnGameOver, void());
     DEFINE_HOOK(OnPlayDestroy, void());
@@ -264,6 +265,8 @@ public:
 
         static GameInteractionEffectQueryResult SpawnEnemyWithOffset(uint32_t enemyId, int32_t enemyParams);
         static GameInteractionEffectQueryResult SpawnActor(uint32_t actorId, int32_t actorParams);
+        static GameInteractionEffectQueryResult SpawnEnemyAtPosition(std::vector<int> id_Params, std::vector<float> pos);
+
     };
 
     private:
