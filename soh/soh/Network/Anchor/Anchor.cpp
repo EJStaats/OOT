@@ -6,6 +6,7 @@
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/nametag.h"
+#include <iostream>  //remove this later after debugging is done!
 
 extern "C" {
 #include "variables.h"
@@ -81,6 +82,7 @@ void Anchor::OnIncomingJson(nlohmann::json payload) {
     else if (packetType == CONSUME_ADULT_TRADE_ITEM) HandlePacket_ConsumeAdultTradeItem(payload);
     else if (packetType == DAMAGE_PLAYER)            HandlePacket_DamagePlayer(payload);
     else if (packetType == DISABLE_ANCHOR)           HandlePacket_DisableAnchor(payload);
+    else if (packetType == ENEMY_LIST)               HandlePacket_EnemyList(payload);
     else if (packetType == ENTRANCE_DISCOVERED)      HandlePacket_EntranceDiscovered(payload);
     else if (packetType == GAME_COMPLETE)            HandlePacket_GameComplete(payload);
     else if (packetType == GIVE_ITEM)                HandlePacket_GiveItem(payload);
@@ -90,6 +92,7 @@ void Anchor::OnIncomingJson(nlohmann::json payload) {
     else if (packetType == REQUEST_TEAM_STATE)       HandlePacket_RequestTeamState(payload);
     else if (packetType == REQUEST_TELEPORT)         HandlePacket_RequestTeleport(payload);
     else if (packetType == SERVER_MESSAGE)           HandlePacket_ServerMessage(payload);
+    else if (packetType == SERVER_PING)              HandlePacket_ServerPing(payload);
     else if (packetType == SET_CHECK_STATUS)         HandlePacket_SetCheckStatus(payload);
     else if (packetType == SET_FLAG)                 HandlePacket_SetFlag(payload);
     else if (packetType == TELEPORT_TO)              HandlePacket_TeleportTo(payload);
@@ -151,6 +154,12 @@ void Anchor::RegisterHooks() {
             SendPacket_RequestTeamState();
         }
         SendPacket_PlayerUpdate();
+        timer++;
+        if (timer >= 20) {
+            timer = 0;
+            SendPacket_ServerPing(); //update ping every second
+        }
+        SendPacket_EnemyList();
     });
 
     HOOK(OnPlayerSfx, isConnected, [&](u16 sfxId) {

@@ -72,6 +72,13 @@ void AnchorRoomWindow::Draw() {
                     ImGui::TextColored(ImVec4(1, 1, 1, 0.5f), "- %s", SohUtils::GetSceneName(client.self ? gPlayState->sceneNum : client.sceneNum).c_str());
                 }
             }
+            if (client.self) {
+                ImGui::SameLine();
+                uint16_t ping = Anchor::Instance->ping;
+                if (ping < 50) ImGui::TextColored(ImVec4(0.8f, 1.0f, 0.8f, 0.5f), "- %ims", Anchor::Instance->ping);
+                else if (ping >= 50 && ping < 100) ImGui::TextColored(ImVec4(1.0f, 0.65f, 0.0f, 0.5f), "- %ims", Anchor::Instance->ping);
+                else if (ping >= 100) ImGui::TextColored(ImVec4(1.0f, 0.1f, 0.1f, 0.5f), "- %ims", Anchor::Instance->ping);
+            }
 
             if (
                 Anchor::Instance->IsSaveLoaded() && !client.self && client.isSaveLoaded && 

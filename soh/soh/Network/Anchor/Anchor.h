@@ -29,6 +29,7 @@ typedef struct {
     bool isGameComplete;
     s16 sceneNum;
     s32 entranceIndex;
+    std::vector<Actor*> enemyList;
 
     // Only available in PLAYER_UPDATE packets
     s32 linkAge;
@@ -65,7 +66,8 @@ class Anchor : public Network {
     bool justLoadedSave = false;
     bool isHandlingUpdateTeamState = false;
     uint32_t ownClientId;
-
+    uint8_t timer=0;
+  
     nlohmann::json PrepClientState();
     nlohmann::json PrepRoomState();
     void RegisterHooks();
@@ -74,6 +76,7 @@ class Anchor : public Network {
     void HandlePacket_ConsumeAdultTradeItem(nlohmann::json payload);
     void HandlePacket_DamagePlayer(nlohmann::json payload);
     void HandlePacket_DisableAnchor(nlohmann::json payload);
+    void HandlePacket_EnemyList(nlohmann::json payload);
     void HandlePacket_EntranceDiscovered(nlohmann::json payload);
     void HandlePacket_GameComplete(nlohmann::json payload);
     void HandlePacket_GiveItem(nlohmann::json payload);
@@ -82,6 +85,7 @@ class Anchor : public Network {
     void HandlePacket_RequestTeamState(nlohmann::json payload);
     void HandlePacket_RequestTeleport(nlohmann::json payload);
     void HandlePacket_ServerMessage(nlohmann::json payload);
+    void HandlePacket_ServerPing(nlohmann::json payload);
     void HandlePacket_SetCheckStatus(nlohmann::json payload);
     void HandlePacket_SetFlag(nlohmann::json payload);
     void HandlePacket_TeleportTo(nlohmann::json payload);
@@ -100,6 +104,7 @@ class Anchor : public Network {
     inline static const std::string CONSUME_ADULT_TRADE_ITEM = "CONSUME_ADULT_TRADE_ITEM";
     inline static const std::string DAMAGE_PLAYER = "DAMAGE_PLAYER";
     inline static const std::string DISABLE_ANCHOR = "DISABLE_ANCHOR";
+    inline static const std::string ENEMY_LIST = "ENEMY_LIST";
     inline static const std::string ENTRANCE_DISCOVERED = "ENTRANCE_DISCOVERED";
     inline static const std::string GAME_COMPLETE = "GAME_COMPLETE";
     inline static const std::string GIVE_ITEM = "GIVE_ITEM";
@@ -109,6 +114,7 @@ class Anchor : public Network {
     inline static const std::string REQUEST_TEAM_STATE = "REQUEST_TEAM_STATE";
     inline static const std::string REQUEST_TELEPORT = "REQUEST_TELEPORT";
     inline static const std::string SERVER_MESSAGE = "SERVER_MESSAGE";
+    inline static const std::string SERVER_PING = "SERVER_PING";
     inline static const std::string SET_CHECK_STATUS = "SET_CHECK_STATUS";
     inline static const std::string SET_FLAG = "SET_FLAG";
     inline static const std::string TELEPORT_TO = "TELEPORT_TO";
@@ -123,6 +129,7 @@ class Anchor : public Network {
     std::map<uint32_t, AnchorClient> clients;
     std::vector<uint32_t> actorIndexToClientId;
     RoomState roomState;
+    uint16_t ping=0;
 
     void Enable();
     void Disable();
@@ -136,6 +143,7 @@ class Anchor : public Network {
     void SendPacket_ClearTeamState();
     void SendPacket_ConsumeAdultTradeItem(u8 itemId);
     void SendPacket_DamagePlayer(u32 clientId, u8 damageEffect, u8 damage);
+    void SendPacket_EnemyList();
     void SendPacket_EntranceDiscovered(u16 entranceIndex);
     void SendPacket_GameComplete();
     void SendPacket_GiveItem(u16 modId, s16 getItemId);
@@ -144,6 +152,7 @@ class Anchor : public Network {
     void SendPacket_PlayerUpdate();
     void SendPacket_RequestTeamState();
     void SendPacket_RequestTeleport(u32 clientId);
+    void SendPacket_ServerPing();
     void SendPacket_SetCheckStatus(RandomizerCheck rc);
     void SendPacket_SetFlag(s16 sceneNum, s16 flagType, s16 flag);
     void SendPacket_TeleportTo(u32 clientId);
