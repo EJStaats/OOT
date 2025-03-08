@@ -37,7 +37,7 @@ jobs:
         export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
         cmake --no-warn-unused-cli -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE:STRING=Release
         cmake --build build-cmake --config Release --target GenerateSohOtr
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: soh.otr
         path: soh.otr
@@ -85,7 +85,7 @@ jobs:
         sudo port install $(cat .github/workflows/macports-deps.txt)
         brew install ninja
     - name: Download soh.otr
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: soh.otr
     - name: Build SoH
@@ -98,7 +98,7 @@ jobs:
         mv _packages/*.dmg SoH.dmg
         mv README.md readme.txt
     - name: Upload build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: soh-mac
         path: |
@@ -153,7 +153,7 @@ jobs:
         sudo make install
         sudo cp -av /usr/local/lib/libSDL* /lib/x86_64-linux-gnu/
     - name: Download soh.otr
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: soh.otr
     - name: Build SoH
@@ -169,7 +169,7 @@ jobs:
         CC: gcc-${{ matrix.gcc }}
         CXX: g++-${{ matrix.gcc }}
     - name: Upload build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: soh-linux-${{ matrix.archive-suffix }}
         path: |
@@ -217,12 +217,12 @@ jobs:
         mv ./build-windows/gamecontrollerdb.txt ./soh-windows/gamecontrollerdb.txt
         mv ./x64/Release/assets ./soh-windows
     - name: Download soh.otr
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: soh.otr
         path: soh-windows
     - name: Upload build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: soh-windows
         path: soh-windows
